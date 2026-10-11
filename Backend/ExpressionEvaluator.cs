@@ -6,13 +6,13 @@ public static class ExpressionEvaluator
 {
     public static double Evalute(string infix) => EvalutePostfix(ToPostfix(infix));
 
-    // Convierte la expresión infija a postfija usando una pila de operadores.
-    // El resultado es una lista de tokens: números completos (ej. "144", "3.1416") u operadores.
+    // Converts the infix expression to postfix using an operator stack.
+    // The result is a list of tokens: complete numbers (e.g. "144", "3.1416") or operators.
     private static List<string> ToPostfix(string infix)
     {
         var postfix = new List<string>();
         var stack = new Stack<char>();
-        var number = string.Empty; // acumula los dígitos y el punto del número que se está leyendo
+        var number = string.Empty; // accumulates the digits and the decimal point of the number being read
 
         foreach (var item in infix)
         {
@@ -21,14 +21,14 @@ public static class ExpressionEvaluator
                 continue;
             }
 
-            // Parte de un número: se acumula hasta encontrar un operador
+            // Part of a number: keep accumulating until an operator is found
             if (char.IsDigit(item) || item == '.')
             {
                 number += item;
                 continue;
             }
 
-            // Llegó un operador: si había un número acumulado, ya está completo
+            // An operator was found: if there was an accumulated number, it is now complete
             if (number.Length > 0)
             {
                 postfix.Add(number);
@@ -42,7 +42,7 @@ public static class ExpressionEvaluator
 
             if (item == ')')
             {
-                // Se sacan operadores hasta encontrar el '(' correspondiente
+                // Pop operators until the matching '(' is found
                 while (stack.Count > 0 && stack.Peek() != '(')
                 {
                     postfix.Add(stack.Pop().ToString());
@@ -50,14 +50,14 @@ public static class ExpressionEvaluator
 
                 if (stack.Count == 0)
                 {
-                    throw new Exception("Invalid expression."); // ')' sin '('
+                    throw new Exception("Invalid expression."); // ')' without '('
                 }
 
-                stack.Pop(); // descarta el '('
+                stack.Pop(); // discard the '('
             }
             else
             {
-                // Se sacan TODOS los operadores de la pila con prioridad mayor o igual
+                // Pop ALL operators from the stack with greater or equal priority
                 while (stack.Count > 0 && PriorityStack(stack.Peek()) >= PriorityInfix(item))
                 {
                     postfix.Add(stack.Pop().ToString());
@@ -67,19 +67,19 @@ public static class ExpressionEvaluator
             }
         }
 
-        // Si la expresión terminó con un número, se agrega
+        // If the expression ended with a number, add it
         if (number.Length > 0)
         {
             postfix.Add(number);
         }
 
-        // Se vacía la pila
+        // Empty the stack
         while (stack.Count > 0)
         {
             var ope = stack.Pop();
             if (ope == '(')
             {
-                throw new Exception("Invalid expression."); // '(' sin ')'
+                throw new Exception("Invalid expression."); // '(' without ')'
             }
 
             postfix.Add(ope.ToString());
@@ -112,7 +112,7 @@ public static class ExpressionEvaluator
 
     private static bool IsOperator(char item) => item == '^' || item == '*' || item == '/' || item == '+' || item == '-' || item == '(' || item == ')';
 
-    // Evalúa la lista de tokens postfijos usando una pila de números.
+    // Evaluates the list of postfix tokens using a stack of numbers.
     private static double EvalutePostfix(List<string> postfix)
     {
         var stack = new Stack<double>();
@@ -131,8 +131,8 @@ public static class ExpressionEvaluator
             }
             else
             {
-                // InvariantCulture: el punto siempre es el separador decimal,
-                // sin importar la configuración regional de Windows.
+                // InvariantCulture: the dot is always the decimal separator,
+                // regardless of the Windows regional settings.
                 if (!double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
                 {
                     throw new Exception("Invalid expression.");
