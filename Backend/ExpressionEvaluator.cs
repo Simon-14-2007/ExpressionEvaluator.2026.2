@@ -1,5 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using System.Reflection.Metadata;
+﻿using System.Globalization;
 
 namespace Backend;
 
@@ -7,53 +6,86 @@ public static class ExpressionEvaluator
 {
     public static double Evalute(string infix) => EvalutePostfix(ToPostfix(infix));
 
-    private static string ToPostfix(string infix)
+    // Convierte la expresión infija a postfija usando una pila de operadores.
+    // El resultado es una lista de tokens: números completos (ej. "144", "3.1416") u operadores.
+    private static List<string> ToPostfix(string infix)
     {
-        var posfix = string.Empty;
+        var postfix = new List<string>();
         var stack = new Stack<char>();
+        var number = string.Empty; // acumula los dígitos y el punto del número que se está leyendo
+
         foreach (var item in infix)
         {
-            if (IsOperator(item))
+            if (char.IsWhiteSpace(item))
             {
-                if (item == ')')
+                continue;
+            }
+
+            // Parte de un número: se acumula hasta encontrar un operador
+            if (char.IsDigit(item) || item == '.')
+            {
+                number += item;
+                continue;
+            }
+
+            // Llegó un operador: si había un número acumulado, ya está completo
+            if (number.Length > 0)
+            {
+                postfix.Add(number);
+                number = string.Empty;
+            }
+
+            if (!IsOperator(item))
+            {
+                throw new Exception("Invalid expression.");
+            }
+
+            if (item == ')')
+            {
+                // Se sacan operadores hasta encontrar el '(' correspondiente
+                while (stack.Count > 0 && stack.Peek() != '(')
                 {
-                    var ope = stack.Pop();
-                    while(ope != '(')
-                    {
-                        posfix += ope;
-                        ope = stack.Pop();
-                    }
+                    postfix.Add(stack.Pop().ToString());
                 }
-                else
+
+                if (stack.Count == 0)
                 {
-                    if (stack.Count == 0)
-                    {
-                        stack.Push(item);
-                    }
-                    else
-                    {
-                        if (PriorityInfix(item) > PriorityStack(stack.Peek()))
-                        {
-                            stack.Push(item);
-                        }
-                        else
-                        {
-                            posfix += stack.Pop();
-                            stack.Push(item);
-                        }
-                    }
+                    throw new Exception("Invalid expression."); // ')' sin '('
                 }
+
+                stack.Pop(); // descarta el '('
             }
             else
             {
-                posfix += item;
+                // Se sacan TODOS los operadores de la pila con prioridad mayor o igual
+                while (stack.Count > 0 && PriorityStack(stack.Peek()) >= PriorityInfix(item))
+                {
+                    postfix.Add(stack.Pop().ToString());
+                }
+
+                stack.Push(item);
             }
         }
-        do
+
+        // Si la expresión terminó con un número, se agrega
+        if (number.Length > 0)
         {
-            posfix += stack.Pop();
-        } while (stack.Count != 0);
-        return posfix;
+            postfix.Add(number);
+        }
+
+        // Se vacía la pila
+        while (stack.Count > 0)
+        {
+            var ope = stack.Pop();
+            if (ope == '(')
+            {
+                throw new Exception("Invalid expression."); // '(' sin ')'
+            }
+
+            postfix.Add(ope.ToString());
+        }
+
+        return postfix;
     }
 
     private static int PriorityStack(char op) => op switch
@@ -80,22 +112,41 @@ public static class ExpressionEvaluator
 
     private static bool IsOperator(char item) => item == '^' || item == '*' || item == '/' || item == '+' || item == '-' || item == '(' || item == ')';
 
-    private static double EvalutePostfix(string postfix)
+    // Evalúa la lista de tokens postfijos usando una pila de números.
+    private static double EvalutePostfix(List<string> postfix)
     {
         var stack = new Stack<double>();
-        foreach (var item in postfix)
+        foreach (var token in postfix)
         {
-            if (IsOperator(item))
+            if (token.Length == 1 && IsOperator(token[0]))
             {
+                if (stack.Count < 2)
+                {
+                    throw new Exception("Invalid expression.");
+                }
+
                 var ope2 = stack.Pop();
                 var ope1 = stack.Pop();
-                stack.Push(Calculate(ope1, ope2, item));
+                stack.Push(Calculate(ope1, ope2, token[0]));
             }
             else
             {
-                stack.Push(char.GetNumericValue(item));
+                // InvariantCulture: el punto siempre es el separador decimal,
+                // sin importar la configuración regional de Windows.
+                if (!double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+                {
+                    throw new Exception("Invalid expression.");
+                }
+
+                stack.Push(value);
             }
         }
+
+        if (stack.Count != 1)
+        {
+            throw new Exception("Invalid expression.");
+        }
+
         return stack.Pop();
     }
 
